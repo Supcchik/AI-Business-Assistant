@@ -224,9 +224,9 @@ export default function AdminDevPage() {
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-semibold mb-2">Data Summary:</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div>👥 Clients: {(dataSummary as any)?.clients || 'N/A'}</div>
-                  <div>📦 Products: {(dataSummary as any)?.products || 'N/A'}</div>
-                  <div>📄 Invoices: {(dataSummary as any)?.invoices || 'N/A'}</div>
+                  <div>👥 Clients: {String((dataSummary as Record<string, unknown>)?.clients || 'N/A')}</div>
+                  <div>📦 Products: {String((dataSummary as Record<string, unknown>)?.products || 'N/A')}</div>
+                  <div>📄 Invoices: {String((dataSummary as Record<string, unknown>)?.invoices || 'N/A')}</div>
                 </div>
               </div>
             )}

@@ -14,7 +14,10 @@ const sizeMap: Record<OrbSize, string> = {
   lg: "w-[420px] h-[420px] max-w-[60vw] max-h-[60vh]",
 };
 
-export interface OrbProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface OrbProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 
+  'onDrag' | 'onDragStart' | 'onDragEnd' | 'onDragOver' | 'onDragEnter' | 'onDragLeave' | 'onDrop' |
+  'onAnimationStart' | 'onAnimationEnd' | 'onAnimationIteration' |
+  'onTransitionEnd' | 'onTransitionStart' | 'onTransitionRun' | 'onTransitionCancel'> {
   status?: AgentStatus;
   /** Use the same value for center & dock instances to enable shared layout fly animation */
   layoutId?: string; // default "orb"

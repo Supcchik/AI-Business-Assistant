@@ -73,11 +73,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Basic param normalization
-    if (intent === "show_invoices" && (parsed.params as any)?.periodDays) {
-      (parsed.params as any).periodDays = Number((parsed.params as any).periodDays);
+    if (intent === "show_invoices" && (parsed.params as Record<string, unknown>)?.periodDays) {
+      (parsed.params as Record<string, unknown>).periodDays = Number((parsed.params as Record<string, unknown>).periodDays);
     }
-    if (intent === "top_debtors" && (parsed.params as any)?.limit == null) {
-      parsed.params = { ...(parsed.params as any), limit: 10 };
+    if (intent === "top_debtors" && (parsed.params as Record<string, unknown>)?.limit == null) {
+      parsed.params = { ...(parsed.params as Record<string, unknown>), limit: 10 };
     }
 
     return NextResponse.json(parsed, { status: 200 });
