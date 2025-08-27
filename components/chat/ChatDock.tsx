@@ -67,37 +67,95 @@ export function ChatDock() {
     console.log('Waiting 2.5 seconds...');
     await new Promise(resolve => setTimeout(resolve, 2500));
     
-    // Перехід до завантаження
-    console.log('Setting status to loading...');
-    setStatus('loading');
-    setMode('loading');
-    setDataLoading(true);
-    
-    // Simple regex intent router
-    const command = input.toLowerCase();
-    
-    if (command.includes('invoices') && command.includes('90')) {
-      setView('invoices');
-    } else if (command.includes('inv-') && /\d+/.test(command)) {
-      setView('invoiceDetails');
-    } else if (command.includes('debtors') || command.includes('top')) {
-      setView('debtors');
-    } else if (command.includes('create') && command.includes('invoice')) {
-      setView('wizard');
-    } else {
-      // Default to invoices view
-      setView('invoices');
-    }
+    try {
+      // Виклик Gemini API для нормалізації інтенції
+      console.log('Calling Gemini API for intent normalization...');
+      const res = await fetch("/api/intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input }),
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Intent API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log('Gemini response:', data);
 
-    // Симуляція завантаження даних
-    console.log('Starting data loading simulation...');
-    setTimeout(() => {
-      console.log('Setting mode to dashboard and status to success...');
+      if (data.intent === "none") {
+        // Fallback UX: show small tips, keep mode as is
+        setStatus("error");
+        console.log('Intent not recognized, showing error...');
+        // TODO: Add toast notification here
+        return;
+      }
+
+      // Перехід до завантаження
+      console.log('Setting status to loading...');
+      setStatus('loading');
+      setMode('loading');
+      setDataLoading(true);
+
+      // Switch to dashboard if first time
+      setMode("dashboard");
+
+      // Dispatch by intent
+      switch (data.intent) {
+        case "show_invoices":
+          console.log('Dispatching to invoices view with params:', data.params);
+          setView("invoices");
+          break;
+        case "open_invoice":
+          console.log('Dispatching to invoice details with params:', data.params);
+          setView("invoiceDetails");
+          break;
+        case "top_debtors":
+          console.log('Dispatching to debtors view with params:', data.params);
+          setView("debtors");
+          break;
+        case "create_invoice":
+          console.log('Dispatching to create invoice wizard with params:', data.params);
+          setView("wizard");
+          break;
+        default:
+          console.log('Unknown intent, defaulting to invoices');
+          setView("invoices");
+      }
+
+      // Симуляція завантаження даних
+      console.log('Starting data loading simulation...');
+      setTimeout(() => {
+        console.log('Setting mode to dashboard and status to success...');
+        setMode('dashboard');
+        setDataLoading(false);
+        setDataLoaded(true);
+        setStatus('success');
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error in intent processing:', error);
+      setStatus("error");
+      // Fallback to old logic
+      const command = input.toLowerCase();
+      
+      if (command.includes('invoices') && command.includes('90')) {
+        setView('invoices');
+      } else if (command.includes('inv-') && /\d+/.test(command)) {
+        setView('invoiceDetails');
+      } else if (command.includes('debtors') || command.includes('top')) {
+        setView('debtors');
+      } else if (command.includes('create') && command.includes('invoice')) {
+        setView('wizard');
+      } else {
+        setView('invoices');
+      }
+
       setMode('dashboard');
       setDataLoading(false);
       setDataLoaded(true);
       setStatus('success');
-    }, 1000);
+    }
 
     setInput('');
   };
