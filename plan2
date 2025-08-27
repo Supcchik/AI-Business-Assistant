@@ -1,0 +1,88 @@
+# План реалізації Orb компонента
+
+## 1. Встановлення залежностей
+- Додати `framer-motion` до `package.json`
+- Встановити залежність
+
+## 2. CSS утиліти та змінні
+- Додати анімації в `app/globals.css`:
+  - `breath` - повільне дихання
+  - `shimmer` - блиск
+  - `flash` - спалах
+  - `spin-slow` - повільне обертання
+- Додати CSS змінні для кольорів:
+  - `--orb-from`: cyan-500
+  - `--orb-to`: violet-500  
+  - `--orb-glow`: rgba(139,92,246,.45)
+
+## 3. Основний Orb компонент
+**Файл**: `components/orb/Orb.tsx`
+
+**Функціональність**:
+- Статуси: `idle`, `listening`, `thinking`, `success`, `error`
+- Розміри: `sm`, `md`, `lg`
+- Анімації через Framer Motion
+- Градієнтний фон з кільцями
+- Іконка Brain з lucide-react
+- Підтримка `prefers-reduced-motion`
+
+**Props**:
+- `status` - поточний статус агента
+- `layoutId` - для shared layout анімації
+- `size` - розмір орба
+- `subtle` - приглушений режим для dock
+- `showIcon` - показувати іконку
+
+## 4. Слоти для різних позицій
+
+**OrbCenterSlot** (`components/orb/OrbCenterSlot.tsx`):
+- Фіксована позиція по центру екрану
+- Розмір `lg` (420px)
+- Для порожнього стану
+
+**OrbDockSlot** (`components/orb/OrbDockSlot.tsx`):
+- Розмір `sm` (48px)
+- Приглушений режим
+- Для чат dock
+
+## 5. Інтеграція з існуючою системою
+
+**Замінити в**:
+- `app/page.tsx` - порожній стан з `OrbCenterSlot`
+- `components/chat/ChatDock.tsx` - додати `OrbDockSlot`
+
+**Логіка перемикання**:
+- Використовувати `layoutId="orb"` для обох
+- Framer Motion автоматично анімує перехід між позиціями
+
+## 6. Статуси та анімації
+
+**idle**: CSS анімація `breath` (4s)
+**listening**: Framer scale [1, 1.04, 1] (1.4s)
+**thinking**: Shimmer overlay (2.4s)
+**success**: Flash glow (0.6s)
+**error**: Shake rotate [-2, 2, -2, 0] (0.45s)
+
+## 7. Структура файлів
+```
+components/orb/
+├── Orb.tsx           # Основний компонент
+├── OrbCenterSlot.tsx # Слот для центру
+└── OrbDockSlot.tsx   # Слот для dock
+```
+
+## 8. Переваги рішення
+- ✅ Анімований перехід між станами
+- ✅ Shared layout анімація
+- ✅ Темизація через CSS змінні
+- ✅ Підтримка accessibility
+- ✅ Інтеграція з shadcn/ui
+- ✅ Responsive дизайн
+
+## 9. Критерії прийняття
+- [ ] Orb відображається в центрі (порожній стан)
+- [ ] Orb відображається в dock (dashboard)
+- [ ] Перехід між позиціями анімований
+- [ ] Статуси змінюють анімацію
+- [ ] Кольори налаштовуються через CSS змінні
+- [ ] Підтримка `prefers-reduced-motion`

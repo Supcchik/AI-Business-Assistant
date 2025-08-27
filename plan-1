@@ -1,0 +1,325 @@
+# AI Business Assistant — Деталізований план реалізації
+
+> **Мета:** Створити прототип "Conversational Generative UI" в Cursor з **orb‑first** shell, **shadcn/ui** компонентами та **Convex** як shared DB. Максимальне використання shadcn/ui компонентів.
+
+---
+
+## Етап 1: Базова структура проекту (1 день)
+
+### 1.1 Ініціалізація Next.js 14
+- Створення проекту з TypeScript та App Router
+- Налаштування Tailwind CSS та PostCSS
+- Конфігурація `globals.css` з Tailwind директивами
+
+### 1.2 Встановлення залежностей
+```bash
+# Основні пакети
+npm install tailwindcss postcss autoprefixer
+npm install @radix-ui/react-scroll-area lucide-react
+npm install zod class-variance-authority tailwind-merge
+npm install @tanstack/react-table zustand
+
+# shadcn/ui компоненти (основні)
+npx shadcn@latest add button card badge input textarea table tabs toast dropdown-menu scroll-area separator skeleton tooltip
+
+# shadcn/ui компоненти (форми)
+npx shadcn@latest add label form checkbox radio-group select
+
+# shadcn/ui компоненти (навігація)
+npx shadcn@latest add navigation-menu breadcrumb command context-menu
+
+# shadcn/ui компоненти (дані)
+npx shadcn@latest add data-table calendar progress meter alert alert-dialog
+
+# shadcn/ui компоненти (layout)
+npx shadcn@latest add sheet dialog popover collapsible accordion avatar
+```
+
+### 1.3 Структура папок
+```
+app/
+  layout.tsx
+  page.tsx
+  admin/
+    dev/
+      page.tsx
+components/
+  ui/ (всі shadcn/ui компоненти)
+  orb/
+    Orb.tsx
+  chat/
+    ChatDock.tsx
+  canvas/
+    Canvas.tsx
+    ViewContainer.tsx
+    views/
+      InvoicesTableView.tsx
+      InvoiceDetailsView.tsx
+      DebtorsAnalyticsView.tsx
+      CreateInvoiceWizardView.tsx
+stores/
+  uiStore.ts
+lib/
+  convex.ts
+  utils.ts
+convex/
+  schema.ts
+  functions/
+    seed.ts
+    queries.ts
+    mutations.ts
+middleware.ts
+```
+
+---
+
+## Етап 2: UI Shell та State Management (1 день)
+
+### 2.1 Zustand Store (stores/uiStore.ts)
+```typescript
+interface UIState {
+  mode: 'empty' | 'dashboard';
+  agentStatus: 'idle' | 'thinking' | 'success' | 'error';
+  activeView: 'none' | 'invoices' | 'invoiceDetails' | 'debtors' | 'wizard';
+  
+  // Actions
+  setMode: (mode: Mode) => void;
+  setStatus: (status: AgentStatus) => void;
+  setView: (view: ActiveView) => void;
+  resetScreen: () => void;
+}
+```
+
+### 2.2 Orb компонент (components/orb/Orb.tsx)
+- **Empty mode**: `Card` з `Brain` іконом (96px) + `Badge` для статусу
+- **Dashboard mode**: малий `Avatar` з `Brain` іконом (48-56px)
+- Використання: `Card`, `Badge`, `Avatar`
+
+### 2.3 Chat Dock (components/chat/ChatDock.tsx)
+- **Container**: `Card` з фіксованою позицією внизу
+- **Input**: `Input` з лейблом "Type a command..."
+- **Button**: `Button` для відправки
+- **Status**: `Badge` для статусу агента
+- **Layout**: `Scroll-area` для довгих повідомлень
+- Використання: `Card`, `Input`, `Button`, `Badge`, `Scroll-area`
+
+### 2.4 Top Bar
+- **Container**: `Navigation-menu` або `Card`
+- **Reset Button**: `Button` (variant="ghost")
+- **Theme Toggle**: `Button` (variant="outline")
+- **Separator**: `Separator` між елементами
+- Використання: `Navigation-menu`, `Button`, `Separator`
+
+### 2.5 Canvas та ViewContainer
+- **Container**: `Card` з `Tabs` для навігації
+- **View Switcher**: `Tabs` для перемикання між view
+- **Loading**: `Skeleton` компоненти під час завантаження
+- Використання: `Card`, `Tabs`, `Skeleton`
+
+---
+
+## Етап 3: Intent Router (0.5 дня)
+
+### 3.1 Regex парсинг в ChatDock
+```typescript
+// Команди та відповідні view
+const commandPatterns = {
+  'show.*invoices.*90.*days': 'invoices',
+  'open.*inv-\\d+': 'invoiceDetails',
+  'top.*debtors': 'debtors',
+  'create.*invoice.*for.*\\w+': 'wizard'
+};
+```
+
+### 3.2 Обробка статусів
+- `setStatus('thinking')` при відправці
+- `setStatus('success')` після завантаження view
+- `setStatus('error')` при помилці
+
+---
+
+## Етап 4: Convex Database (1-2 дні)
+
+### 4.1 Schema (convex/schema.ts)
+```typescript
+// Основні таблиці
+export const clients = defineTable({
+  name: v.string(),
+  billingEmail: v.string(),
+  defaultCurrency: v.union(v.literal('USD'), v.literal('EUR'), v.literal('UAH')),
+  taxId: v.optional(v.string()),
+  address: v.optional(v.string())
+});
+
+export const invoices = defineTable({
+  businessId: v.string(), // INV-1xxx
+  clientId: v.id('clients'),
+  contactId: v.optional(v.id('contacts')),
+  issueDate: v.string(),
+  dueDate: v.string(),
+  status: v.union(v.literal('Draft'), v.literal('Sent'), v.literal('Paid'), v.literal('Overdue'), v.literal('PartiallyPaid')),
+  currency: v.union(v.literal('USD'), v.literal('EUR'), v.literal('UAH')),
+  total: v.number(),
+  balanceDue: v.number()
+}).index('by_client', ['clientId'])
+  .index('by_status', ['status'])
+  .index('by_issue_date', ['issueDate']);
+```
+
+### 4.2 Functions
+- **queries.ts**: `listInvoicesByPeriod`, `getInvoiceByBusinessId`, `getTopDebtors`
+- **mutations.ts**: `createInvoiceWizard`
+- **seed.ts**: `seedData`, `resetData` з реалістичними даними
+
+### 4.3 Mock Data
+- 30-60 інвойсів за останні 12 місяців
+- Статуси: Paid (50-60%), Sent (10-15%), Draft (5-10%), Overdue (10-15%), PartiallyPaid (10-15%)
+- Реалістичні суми в USD/EUR/UAH
+
+---
+
+## Етап 5: View Components (1-2 дні)
+
+### 5.1 InvoicesTableView (components/canvas/views/InvoicesTableView.tsx)
+- **Container**: `Card` з заголовком
+- **Table**: `Data-table` з @tanstack/react-table
+- **Toolbar**: `Input` (пошук), `Select` (статус), `Button` (фільтри періоду)
+- **Status Badges**: `Badge` з різними кольорами для статусів
+- **Row Actions**: `Dropdown-menu` з діями
+- Використання: `Card`, `Data-table`, `Input`, `Select`, `Button`, `Badge`, `Dropdown-menu`
+
+### 5.2 InvoiceDetailsView (components/canvas/views/InvoiceDetailsView.tsx)
+- **Header**: `Card` з інформацією про клієнта та `Badge` статусу
+- **Line Items**: `Table` з продуктами та сумами
+- **Payments**: `Table` з платежами
+- **Actions**: `Button` "Add Payment" + `Dialog` для форми
+- **Contact Info**: `Badge` "Sent to: {email}"
+- Використання: `Card`, `Badge`, `Table`, `Button`, `Dialog`, `Form`
+
+### 5.3 DebtorsAnalyticsView (components/canvas/views/DebtorsAnalyticsView.tsx)
+- **Chart Container**: `Card` з placeholder графіком
+- **Top Debtors Table**: `Data-table` з клієнтами та сумами
+- **Balance Badges**: `Badge` з різними кольорами для сум
+- **Row Actions**: `Button` для фільтрації інвойсів по клієнту
+- Використання: `Card`, `Data-table`, `Badge`, `Button`
+
+### 5.4 CreateInvoiceWizardView (components/canvas/views/CreateInvoiceWizardView.tsx)
+- **Wizard Container**: `Card` з `Tabs` для кроків
+- **Step 1**: `Form` з `Select` (клієнт), `Input` (умови)
+- **Step 2**: `Form` з `Input` (опис), `Input` (кількість), `Input` (ціна)
+- **Step 3**: `Card` з переглядом та `Button` "Create Draft"
+- **Progress**: `Progress` бар для відстеження кроків
+- Використання: `Card`, `Tabs`, `Form`, `Input`, `Select`, `Button`, `Progress`
+
+---
+
+## Етап 6: Dev Tools та Security (0.5-1 день)
+
+### 6.1 Admin Panel (/admin/dev/page.tsx)
+- **Container**: `Card` з заголовком
+- **Actions**: `Button` "Seed Data", `Button` "Reset Data", `Button` "Dump Logs"
+- **Results**: `Alert` для повідомлень про успіх/помилку
+- **Log Display**: `Scroll-area` з `Textarea` для логів
+- Використання: `Card`, `Button`, `Alert`, `Scroll-area`, `Textarea`
+
+### 6.2 Security
+- **Middleware**: простий password gate
+- **Convex Actions**: захист через shared secret
+- **Error Handling**: `Alert` для помилок авторизації
+
+### 6.3 Error Handling
+- **Toast**: `Toast` для сповіщень
+- **Skeleton**: `Skeleton` для завантаження
+- **Alert**: `Alert` для помилок та попереджень
+
+---
+
+## Етап 7: Інтеграція та тестування (0.5-1 день)
+
+### 7.1 Підключення View до Convex
+- InvoicesTable → `listInvoicesByPeriod` query
+- InvoiceDetails → `getInvoiceByBusinessId` query
+- DebtorsAnalytics → `getTopDebtors` query
+- Wizard → `createInvoiceWizard` mutation
+
+### 7.2 Тестування основних сценаріїв
+- Empty → Dashboard перемикання через команди
+- Завантаження 90-денних інвойсів
+- Відкриття конкретного інвойсу (INV-1047)
+- Відображення топ боржників
+- Reset screen функціональність
+
+---
+
+## Технічні деталі
+
+### shadcn/ui компоненти за категоріями
+1. **Основні**: button, card, badge, input, textarea
+2. **Таблиці**: table, data-table
+3. **Навігація**: tabs, navigation-menu, breadcrumb
+4. **Форми**: form, label, select, checkbox, radio-group
+5. **Layout**: sheet, dialog, popover, collapsible, accordion
+6. **Відображення**: progress, meter, alert, toast, skeleton
+7. **Утиліти**: separator, scroll-area, tooltip, avatar
+
+### Convex Schema оптимізація
+- Індекси для швидкого пошуку
+- FK зв'язки для цілісності даних
+- Compound індекси для exchange rates
+- Оптимізовані запити для view компонентів
+
+### State Management стратегія
+- Zustand для UI стану
+- Convex для даних
+- Синхронізація між ними через хуки
+
+---
+
+## Критерії прийняття
+
+### M1 — Shell & State (1 день)
+- [ ] Проект створено, всі shadcn/ui компоненти встановлено
+- [ ] Orb empty state + Chat Dock + Top bar з shadcn/ui
+- [ ] Zustand store + resetScreen функціональність
+- [ ] Regex intent router перемикає views
+
+### M2 — Convex & Data (1-2 дні)
+- [ ] Convex schema + індекси
+- [ ] Seed + resetData з реалістичними даними
+- [ ] Queries/mutations для всіх view
+
+### M3 — Views Wiring (1-2 дні)
+- [ ] Всі view компоненти використовують shadcn/ui
+- [ ] InvoicesTable підключено до Convex
+- [ ] InvoiceDetails підключено до Convex
+- [ ] DebtorsAnalytics підключено до Convex
+- [ ] Wizard створює Draft через Convex
+
+### M4 — Polish & Dev tools (0.5-1 день)
+- [ ] /admin/dev контроли з shadcn/ui
+- [ ] Toast, skeleton, error handling
+- [ ] Password gate та security
+
+---
+
+## Висновок
+
+**Загальний час реалізації: 5-7 днів**
+
+Ключові переваги плану:
+1. **Максимальне використання shadcn/ui** - швидка розробка, консистентний дизайн
+2. **Чітка архітектура** - розділення відповідальності між компонентами
+3. **Готовність до темизації** - tweakcn сумісність
+4. **Масштабованість** - легке додавання нових view та функцій
+5. **Професійна якість** - готовні компоненти з accessibility та TypeScript
+
+План забезпечує створення якісного прототипу Conversational Generative UI з мінімальними зусиллями на стилізацію та максимальним використанням готових shadcn/ui компонентів.
+
+---
+
+## Додаткові нотатки
+
+- Всі компоненти мають використовувати shadcn/ui за замовчуванням
+- Уникати створення кастомних компонентів без необхідності
+- Використовувати Tailwind CSS класи для мінімальної кастомізації
+- Готовність до подальшого розвитку та додавання нових view
